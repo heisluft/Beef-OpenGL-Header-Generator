@@ -18,8 +18,8 @@ In your shell, run:
 
 In both cases, the jar will be in `build/libs/`
 
-
 ##Running:
+
 For a list of available options, run
 `java -jar Beef-OpenGL-Header-Generator-{version}.jar --help`
 Options are Unix-style with the support of chaining multiple short options together
