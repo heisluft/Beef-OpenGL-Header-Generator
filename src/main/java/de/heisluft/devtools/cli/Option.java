@@ -3,13 +3,13 @@ package de.heisluft.devtools.cli;
 import java.util.function.Consumer;
 
 /**
- * Represents a CLI option, consisting of its long and short name and its callback to be run if set
+ * Represents a CLI option, consisting of its name, shorthand and its callback to be run if set
  */
 public class Option {
-  /** The long name of the Option */
-  public final String longOption;
-  /** The short name of the Option */
-  public final char shortOption;
+  /** The name of the option */
+  public final String name;
+  /** The shorthand of the option */
+  public final char shorthand;
   /** If the Option takes a value, defined by the callback type supplied within the constructor */
   public final boolean hasValue;
   /** For valued options this callback is called if the option is set. The String argument contains the value */
@@ -20,13 +20,13 @@ public class Option {
   /**
    * Defines an Option that takes a value
    *
-   * @param longOption the options long name
-   * @param shortOption the options short name
+   * @param name the options name
+   * @param shorthand the options shorthand
    * @param valueCallback the callback to be run if the option is set
    */
-  public Option(String longOption, char shortOption, Consumer<String> valueCallback) {
-    this.longOption = longOption;
-    this.shortOption = shortOption;
+  public Option(String name, char shorthand, Consumer<String> valueCallback) {
+    this.name = name;
+    this.shorthand = shorthand;
     this.hasValue = true;
     this.onDefinedCallBack = null;
     this.valueCallback = valueCallback;
@@ -35,13 +35,13 @@ public class Option {
   /**
    * Defines an Option that does not take a value
    *
-   * @param longOption the options long name
-   * @param shortOption the options short name
+   * @param name the options name
+   * @param shorthand the options shorthand
    * @param onSetCallback the callback to be run if the option is set
    */
-  public Option(String longOption, char shortOption, Runnable onSetCallback) {
-    this.longOption = longOption;
-    this.shortOption = shortOption;
+  public Option(String name, char shorthand, Runnable onSetCallback) {
+    this.name = name;
+    this.shorthand = shorthand;
     this.hasValue = false;
     this.onDefinedCallBack = onSetCallback;
     this.valueCallback = null;
