@@ -96,7 +96,7 @@ public class HeaderGenerator {
   }
 
   public static void main(String[] args) throws Exception {
-    System.out.println("Beef OpenGL Header Generator version 1.3.0 by heisluft\n");
+    System.out.println("Beef OpenGL Header Generator version 1.3.1 by heisluft\n");
     CLIUtil.addOptions(
         new Option("core", 'c', () -> coreProfile = true),
         new Option("autoconv", 'a', () -> autoConversion = true),
@@ -299,7 +299,7 @@ public class HeaderGenerator {
       lines.add("\n            for(uint i = 0; i < (.) *glGetIntegerv(.GL_NUM_EXTENSIONS, .. &(scope int[1])[0]); i++) {");
       lines.add("                StringView currentExt = StringView((char8*) glGetStringi(.GL_EXTENSIONS, i));\n");
       foundExtensions.keySet().forEach(ext ->
-          lines.add("                " + ext + " = currentExt.Equals(, \"" + ext + "\");")
+          lines.add("                " + ext + " = currentExt.Equals(\"" + ext + "\");")
       );
       lines.add("            }");
     }
