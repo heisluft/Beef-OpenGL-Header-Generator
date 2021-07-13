@@ -1,6 +1,6 @@
 # Beef OpenGL Header Generator
 A Generator for OpenGL headers for the Beef Programming language
-##Features:
+## Features:
 - Automatic Grouping of enum values into actual enums with the options to auto-convert from uints.
 - Core and compatibility profiles support
 - All OpenGL versions supported
@@ -17,9 +17,7 @@ In your shell, run:
 `./gradlew jar`
 
 In both cases, the jar will be in `build/libs/`
-
-##Running:
-
+## Running:
 For a list of available options, run
 `java -jar Beef-OpenGL-Header-Generator-{version}.jar --help`
 Options are Unix-style with the support of chaining multiple short options together
