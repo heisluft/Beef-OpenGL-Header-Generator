@@ -1,5 +1,5 @@
 # Beef OpenGL Header Generator
-A Generator for OpenGL headers for the Beef Programming language, Version 1.3.3
+A Generator for OpenGL headers for the Beef Programming language, Version 1.3.4
 ## Features:
 - Automatic Grouping of enum values into actual enums with the options to auto-convert from uints.
 - Core and compatibility profiles support
