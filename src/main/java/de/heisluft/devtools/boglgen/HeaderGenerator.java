@@ -183,7 +183,7 @@ public class HeaderGenerator {
           Enum.forName(group).addValue(name, node1.getAttribute("value"));
       } else {
         String val = node1.getAttribute(("value"));
-        lines.add("        public const uint" + (val.length() < 7 ? "" : ((val.length() - 2) * 4)) + " " + name + " = " + val + ";");
+        lines.add("        public const uint" + (val.length() < 7 ? "" : val.length() < 11 ? 32 : 64) + " " + name + " = " + val + ";");
       }
     }));
     lines.add("");
