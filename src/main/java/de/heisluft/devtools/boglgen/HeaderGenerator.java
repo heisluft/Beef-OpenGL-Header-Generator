@@ -96,7 +96,7 @@ public class HeaderGenerator {
   }
 
   public static void main(String[] args) throws Exception {
-    System.out.println("Beef OpenGL Header Generator version 1.2.0 by heisluft\n");
+    System.out.println("Beef OpenGL Header Generator version 1.3.0 by heisluft\n");
     CLIUtil.addOptions(
         new Option("core", 'c', () -> coreProfile = true),
         new Option("autoconv", 'a', () -> autoConversion = true),
