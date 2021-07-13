@@ -17,6 +17,7 @@ In your shell, run:
 `./gradlew jar`
 
 In both cases, the jar will be in `build/libs/`
+
 ##Running
 For a list of available options, run
 `java -jar Beef-OpenGL-Header-Generator-{version}.jar --help`
