@@ -46,4 +46,5 @@ OpenGL.Init(=> Glfw.GetProcAddress);
   you can cast all ungrouped enum values with your typical `(.)` stunt. If you like to
   auto convert those ungrouped values, specify `-a` or `--autoconv` when running the generator
 - If you've included Extensions in your header generation you can use `if(OpenGl.EXTENSION) {...}`
-  to check whether the extension is supported for the device running your program
+  to check whether the extension is supported for the device running your program. If you don't need
+  this feature you can turn it off by specifying `-n` or `--noExtCheck` when running the generator

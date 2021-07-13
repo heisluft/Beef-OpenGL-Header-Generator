@@ -38,6 +38,8 @@ public class HeaderGenerator {
   private static boolean coreProfile = false;
   /** Whether to include non-standard enums not required by a version */
   private static boolean optionalEnums = false;
+  /** Whether to generate bools for easy extension checking */
+  private static boolean generateExtensionBooleans = true;
   /** The Major OpenGL version */
   private static int versionMajor = 3;
   /** The Minor OpenGL version */
@@ -99,6 +101,7 @@ public class HeaderGenerator {
     System.out.println("Beef OpenGL Header Generator version 1.3.1 by heisluft\n");
     CLIUtil.addOptions(
         new Option("core", 'c', () -> coreProfile = true),
+        new Option("noExtCheck", 'n', () -> generateExtensionBooleans = false),
         new Option("autoconv", 'a', () -> autoConversion = true),
         new Option("optionalEnums", 'e', () -> optionalEnums = true),
         new Option("listExt", 'l', HeaderGenerator::listExtensions),
@@ -116,6 +119,11 @@ public class HeaderGenerator {
           }
         }),
         new Option("version", 'v', verString -> {
+          if(verString.equals("latest")) {
+            versionMajor = 4;
+            versionMinor = 3;
+            return;
+          }
           if (verString.length() != 3 || verString.charAt(1) != '.') {
             System.err.println("Invalid version format supplied. Required: Major[dot]Minor, given '" + verString + "'");
             System.exit(3);
@@ -129,7 +137,8 @@ public class HeaderGenerator {
           System.out.println("Options:");
           System.out.println("Option               Shorthand       Description\n");
           System.out.println("--version=VERSION    -v VERSION    The OpenGl version to generate headers for. Format is");
-          System.out.println("                                   VersionMajor[dot]VersionMinor e.g. 3.2\n");
+          System.out.println("                                   VersionMajor[dot]VersionMinor e.g. 3.2 or 'latest'");
+          System.out.println("                                   for (currently latest) 4.3\n");
           System.out.println("--core               -c            Omits functions and enum values removed by the core");
           System.out.println("                                   profile. The OpenGL version must be 3.2 or higher.\n");
           System.out.println("--autoconv           -a            Enables automatic conversions from integer types to enums.");
@@ -144,6 +153,8 @@ public class HeaderGenerator {
           System.out.println("--include=EXTENSIONS -i EXTENSIONS Includes functions and enum values from the specified");
           System.out.println("                                   comma separated list of extensions.");
           System.out.println("                                   Usage: --include=GL_EXT_1,GL_EXT_2,...\n");
+          System.out.println("--noExtCheck         -n            Skips generation of bool values for checking if an");
+          System.out.println("                                   extension is available on a certain platform\n");
           System.out.println("--help               -h            Displays this message");
           System.exit(0);
         })
@@ -223,10 +234,10 @@ public class HeaderGenerator {
     });
 
     lines.add("using System;\n\nnamespace opengl {\n    static class OpenGL {\n");
-    foundExtensions.keySet().forEach(key -> lines.add("        public static bool " + key + " {private set;}"));
+    if(generateExtensionBooleans) foundExtensions.keySet().forEach(key -> lines.add("        public static bool " + key + " {private set;}"));
     if(foundExtensions.size() > 0) lines.add("");
     if (versionMajor == 4 && versionMinor == 3)
-      lines.add("        public function void* DEBUGPROC(uint source, uint type, uint id, uint severity, int length, char8* message, void* userParam);");
+      lines.add("        public static function void* DEBUGPROC(DebugSource source, DebugType type, uint id, DebugSeverity severity, int length, char8* message, void* userParam;");
 
     forEachElement(e.getElementsByTagName("enums"), node -> forEachElement(node.getChildNodes(), node1 -> {
       if (!node1.getNodeName().equals("enum")) return;
@@ -295,7 +306,7 @@ public class HeaderGenerator {
     lines.add("\n        public function void* GetProcAddressFunc(StringView procname);");
     lines.add("\n        public static void Init(GetProcAddressFunc func) {");
     reqFuncs.forEach(reqFunc -> lines.add("            " + reqFunc + " = (.)func(\"" + reqFunc + "\");"));
-    if(foundExtensions.size() != 0) {
+    if(generateExtensionBooleans && foundExtensions.size() != 0) {
       lines.add("\n            for(uint i = 0; i < (.) *glGetIntegerv(.GL_NUM_EXTENSIONS, .. &(scope int[1])[0]); i++) {");
       lines.add("                StringView currentExt = StringView((char8*) glGetStringi(.GL_EXTENSIONS, i));\n");
       foundExtensions.keySet().forEach(ext ->
