@@ -13,11 +13,9 @@ import java.io.StringReader;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
 /**
@@ -46,6 +44,8 @@ public class HeaderGenerator {
   private static int versionMinor = 2;
   /** The Path to which to output */
   static Path outputPath = Path.of("OpenGL.bf").toAbsolutePath();
+  /** The extensions to generate headers for */
+  private static final List<String> EXTENSIONS = new ArrayList<>();
 
   /**
    * Makes Khronos PHP snippets conform to XML rules by stripping &lt;br&gt; tags and surrounding the value of the
@@ -102,6 +102,19 @@ public class HeaderGenerator {
         new Option("autoconv", 'a', () -> autoConversion = true),
         new Option("optionalEnums", 'e', () -> optionalEnums = true),
         new Option("listExt", 'l', HeaderGenerator::listExtensions),
+        new Option("include", 'i', extStr -> {
+          for (String s : extStr.split(",")) {
+            if(s.isEmpty()) {
+              System.out.println("Warning: empty extension name, ignoring.");
+              continue;
+            }
+            if(EXTENSIONS.contains(s)) {
+              System.out.println("Warning: Extension '" + s + "' defined twice");
+              continue;
+            }
+            EXTENSIONS.add(s);
+          }
+        }),
         new Option("version", 'v', verString -> {
           if (verString.length() != 3 || verString.charAt(1) != '.') {
             System.err.println("Invalid version format supplied. Required: Major[dot]Minor, given '" + verString + "'");
@@ -114,21 +127,24 @@ public class HeaderGenerator {
         new Option("help", 'h', () -> {
           System.out.println("A tool for the generation of OpenGL headers for the Beef Programming language\n");
           System.out.println("Options:");
-          System.out.println("longOptionName    shortOptionName Description\n");
-          System.out.println("--version=VERSION -v VERSION      The OpenGl version to generate headers for. Format is");
-          System.out.println("                                  VersionMajor[dot]VersionMinor e.g. 3.2\n");
-          System.out.println("--core            -c              Omits functions and enum values removed by the core");
-          System.out.println("                                  profile. The OpenGL version must be 3.2 or higher.\n");
-          System.out.println("--autoconv        -a              Enables automatic conversions from integer types to enums.");
-          System.out.println("                                  Omits the need to type (.) for ungrouped values, but it");
-          System.out.println("                                  might clutter your autocompletion.\n");
-          System.out.println("--optionalEnums   -e              Enables the generation of optional constants not required");
-          System.out.println("                                  by a certain feature set. Useful if you want to use");
-          System.out.println("                                  constants that are supported but not standardized, but");
-          System.out.println("                                  not all of them might be. Turn this on as needed.\n");
-          System.out.println("--output=OUT_FILE -o OUT_FILE     Specifies the file path to which to output.\n");
-          System.out.println("--listExt         -l              Lists all available OpenGL extensions.\n");
-          System.out.println("--help            -h              Displays this message");
+          System.out.println("Option               Shorthand       Description\n");
+          System.out.println("--version=VERSION    -v VERSION    The OpenGl version to generate headers for. Format is");
+          System.out.println("                                   VersionMajor[dot]VersionMinor e.g. 3.2\n");
+          System.out.println("--core               -c            Omits functions and enum values removed by the core");
+          System.out.println("                                   profile. The OpenGL version must be 3.2 or higher.\n");
+          System.out.println("--autoconv           -a            Enables automatic conversions from integer types to enums.");
+          System.out.println("                                   Omits the need to type (.) for ungrouped values, but it");
+          System.out.println("                                   might clutter your autocompletion.\n");
+          System.out.println("--optionalEnums      -e            Enables the generation of optional constants not required");
+          System.out.println("                                   by a certain feature set. Useful if you want to use");
+          System.out.println("                                   constants that are supported but not standardized, but");
+          System.out.println("                                   not all of them might be. Turn this on as needed.\n");
+          System.out.println("--output=OUT_FILE    -o OUT_FILE   Specifies the file path to which to output.\n");
+          System.out.println("--listExt            -l            Lists all available OpenGL extensions.\n");
+          System.out.println("--include=EXTENSIONS -i EXTENSIONS Includes functions and enum values from the specified");
+          System.out.println("                                   comma separated list of extensions.");
+          System.out.println("                                   Usage: --include=GL_EXT_1,GL_EXT_2,...\n");
+          System.out.println("--help               -h            Displays this message");
           System.exit(0);
         })
     );
@@ -139,6 +155,7 @@ public class HeaderGenerator {
       return;
     }
     System.out.println("Generating bindings for version " + version + " with " + (coreProfile ? "core" : "compatibility") + " profile");
+    System.out.println("Requested Extensions: " + EXTENSIONS + "\n");
 
     List<String> lines = new ArrayList<>();
     Set<String> reqEnums = new HashSet<>();
@@ -149,6 +166,41 @@ public class HeaderGenerator {
     Element e = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(
         new URL("https://raw.githubusercontent.com/NogginBops/OpenGL-Registry/fix-enum-group-placement/xml/gl.xml").openStream()
     ).getDocumentElement();
+
+    Map<String, Element> foundExtensions = new HashMap<>();
+
+    toList(e.getElementsByTagName("extension")).stream().map(Element.class::cast).filter(extElement ->
+      EXTENSIONS.contains(extElement.getAttribute("name"))).forEach(ext -> foundExtensions.put(ext.getAttribute("name"), ext));
+
+    EXTENSIONS.stream().filter(Predicate.not(foundExtensions.keySet()::contains)).forEach(s ->
+        System.out.println("Warning: Could not find extension '" + s + "'. Rerun with -l or --listExtensions to see a list of all available extensions"));
+
+    Set<String> invalidExtensions = new HashSet<>();
+
+    foundExtensions.values().stream()
+        .filter(el -> Arrays.stream(el.getAttribute("supported").split("\\|")).noneMatch("gl"::equals))
+        .forEach(el -> {
+          String name = el.getAttribute("name");
+          System.out.println("Warning: Extension " + name + " is not a GL extension, it will not be included");
+          invalidExtensions.add(name);
+        });
+
+    if(coreProfile) foundExtensions.values().stream()
+        .filter(el -> Arrays.stream(el.getAttribute("supported").split("\\|")).noneMatch("glcore"::equals))
+        .forEach(el -> {
+          String name = el.getAttribute("name");
+          System.out.println("Warning: Extension " + name + " is unavailable in core context, it will not be included");
+          invalidExtensions.add(name);
+        });
+    invalidExtensions.forEach(foundExtensions::remove);
+
+    foundExtensions.values().stream().filter(ext -> ext.getElementsByTagName("require").getLength() > 0)
+        .map(entry -> entry.getElementsByTagName("require").item(0)).forEach(node ->
+          forEachElement(node.getChildNodes(), requirement -> {
+            if(requirement.getNodeName().equals("enum")) reqEnums.add(requirement.getAttribute("name"));
+            else reqFuncs.add(requirement.getAttribute("name"));
+          }));
+
     forEachElement(e.getElementsByTagName("feature"), featureNode -> {
       if (!featureNode.getAttribute("api").equals("gl")) return;
       if (featureNode.getAttribute("number").compareTo(version) > 0) return;
@@ -170,7 +222,9 @@ public class HeaderGenerator {
       });
     });
 
-    lines.add("using System;\n\nnamespace opengl {\n    static class OpenGL {");
+    lines.add("using System;\n\nnamespace opengl {\n    static class OpenGL {\n");
+    foundExtensions.keySet().forEach(key -> lines.add("        public static bool " + key + " {private set;}"));
+    if(foundExtensions.size() > 0) lines.add("");
     if (versionMajor == 4 && versionMinor == 3)
       lines.add("        public function void* DEBUGPROC(uint source, uint type, uint id, uint severity, int length, char8* message, void* userParam);");
 
@@ -241,11 +295,19 @@ public class HeaderGenerator {
     lines.add("\n        public function void* GetProcAddressFunc(StringView procname);");
     lines.add("\n        public static void Init(GetProcAddressFunc func) {");
     reqFuncs.forEach(reqFunc -> lines.add("            " + reqFunc + " = (.)func(\"" + reqFunc + "\");"));
+    if(foundExtensions.size() != 0) {
+      lines.add("\n            for(uint i = 0; i < (.) *glGetIntegerv(.GL_NUM_EXTENSIONS, .. &(scope int[1])[0]); i++) {");
+      lines.add("                StringView currentExt = StringView((char8*) glGetStringi(.GL_EXTENSIONS, i));\n");
+      foundExtensions.keySet().forEach(ext ->
+          lines.add("                " + ext + " = currentExt.Equals(, \"" + ext + "\");")
+      );
+      lines.add("            }");
+    }
     lines.add("        }\n    }\n}");
 
     Files.createDirectories(outputPath.getParent());
     Files.write(outputPath, lines);
-    System.out.println("Done, Enjoy!");
+    System.out.println("\nDone, Enjoy!");
   }
 
   /**
