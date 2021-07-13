@@ -98,7 +98,7 @@ public class HeaderGenerator {
   }
 
   public static void main(String[] args) throws Exception {
-    System.out.println("Beef OpenGL Header Generator version 1.3.2 by heisluft\n");
+    System.out.println("Beef OpenGL Header Generator version 1.3.3 by heisluft\n");
     CLIUtil.addOptions(
         new Option("core", 'c', () -> coreProfile = true),
         new Option("noExtCheck", 'n', () -> generateExtensionBooleans = false),
@@ -237,7 +237,7 @@ public class HeaderGenerator {
     if(generateExtensionBooleans) foundExtensions.keySet().forEach(key -> lines.add("        public static bool " + key + " {private set;}"));
     if(foundExtensions.size() > 0) lines.add("");
     if (versionMajor == 4 && versionMinor == 3)
-      lines.add("        public static function void* DEBUGPROC(DebugSource source, DebugType type, uint id, DebugSeverity severity, int length, char8* message, void* userParam;");
+      lines.add("        public static function void* DEBUGPROC(DebugSource source, DebugType type, uint id, DebugSeverity severity, int length, char8* message, void* userParam);");
 
     forEachElement(e.getElementsByTagName("enums"), node -> forEachElement(node.getChildNodes(), node1 -> {
       if (!node1.getNodeName().equals("enum")) return;
