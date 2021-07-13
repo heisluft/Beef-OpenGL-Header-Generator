@@ -5,8 +5,8 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * A simple Command Line Parser allowing both valued and unvalued options to be parsed by their {@link Option#longOption long}
- * or {@link Option#shortOption short} name. Short Option chaining is supported.
+ * A simple Command Line Parser allowing both valued and unvalued options to be parsed by their {@link Option#name long}
+ * or {@link Option#shorthand short} name. Short Option chaining is supported.
  */
 public class CLIUtil {
   /** The set of all defined Options */
@@ -41,22 +41,22 @@ public class CLIUtil {
         String arg = args[i];
         if (arg.startsWith("--")) {
           for (Option o : OPTION_SET) {
-            if (arg.substring(2).startsWith(o.longOption)) {
+            if (arg.substring(2).startsWith(o.name)) {
               if (!o.hasValue) {
-                if (!o.longOption.equals(arg.substring(2))) continue;
+                if (!o.name.equals(arg.substring(2))) continue;
                 if (setOptions.contains(o)) {
-                  System.err.println("Option '" + o.longOption + "' defined twice");
+                  System.err.println("Option '" + o.name + "' defined twice");
                   System.exit(1);
                 }
                 o.onDefinedCallBack.run();
               } else {
-                String val = arg.substring(o.longOption.length() + 2);
+                String val = arg.substring(o.name.length() + 2);
                 if (!val.startsWith("=") || val.length() == 1) {
-                  System.err.println("Option '" + o.longOption + "' requires an argument but none is given");
+                  System.err.println("Option '" + o.name + "' requires an argument but none is given");
                   System.exit(2);
                 }
                 if (setOptions.contains(o)) {
-                  System.err.println("Option '" + o.longOption + "' defined twice");
+                  System.err.println("Option '" + o.name + "' defined twice");
                   System.exit(1);
                 }
                 o.valueCallback.accept(val.substring(1));
@@ -71,9 +71,9 @@ public class CLIUtil {
           charLoop:
           for (char c : arg.substring(1).toCharArray()) {
             for (Option o : OPTION_SET) {
-              if (o.shortOption == c) {
+              if (o.shorthand == c) {
                 if (setOptions.contains(o)) {
-                  System.err.println("Option '" + o.longOption + "' defined twice");
+                  System.err.println("Option '" + o.name + "' defined twice");
                   System.exit(1);
                 }
                 if (o.hasValue) {
@@ -82,7 +82,7 @@ public class CLIUtil {
                     System.exit(3);
                   }
                   if (args.length == i + 1) {
-                    System.err.println("Option '" + o.longOption + "' requires an argument but none is given");
+                    System.err.println("Option '" + o.name + "' requires an argument but none is given");
                     System.exit(2);
                   }
                   o.valueCallback.accept(args[++i]);
