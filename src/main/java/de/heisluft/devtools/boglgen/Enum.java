@@ -27,7 +27,6 @@ public class Enum {
    */
   private Enum(String name) {
     this.name = name;
-    ENUMS.put(name, this);
   }
 
   /**
@@ -37,7 +36,7 @@ public class Enum {
    * @return the found enum
    */
   static Enum forName(String name) {
-    return ENUMS.getOrDefault(name, new Enum(name));
+    return ENUMS.computeIfAbsent(name, Enum::new);
   }
 
   /**
