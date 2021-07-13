@@ -1,0 +1,7 @@
+plugins {
+    id 'java'
+}
+group 'de.heisluft.devtools'
+version '1.2.0'
+
+jar.manifest.attributes.put("Main-Class", "de.heisluft.devtools.boglgen.HeaderGenerator")
