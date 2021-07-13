@@ -261,18 +261,23 @@ public class HeaderGenerator {
       if (!reqFuncs.contains(funName)) return;
       Node firstChild = proto.getFirstChild();
       StringBuilder b = new StringBuilder("        public static function ");
-      if (firstChild instanceof Text) {
-        String text = firstChild.getNodeValue();
-        if (text.startsWith("const ")) text = text.substring(5);
-        int mod = text.endsWith("*") ? 1 : 0;
-        b.append(text).delete(b.length() - 1 - mod, b.length() - mod);
-      }
-      NodeList pTypeList = proto.getElementsByTagName("ptype");
-      if (pTypeList.getLength() != 0) {
-        Node ptype = pTypeList.item(0);
-        b.append(transformType(ptype.getFirstChild().getNodeValue()));
-        if (ptype.getNextSibling() instanceof Text && !ptype.getNextSibling().getNodeValue().isBlank())
-          b.append(ptype.getNextSibling().getNodeValue().replace(" ", ""));
+      //See https://github.com/KhronosGroup/OpenGL-Registry/issues/363
+      if("glGetString".equals(funName) || "glGetStringi".equals(funName)) {
+        b.append("char8*");
+      } else {
+        if (firstChild instanceof Text) {
+          String text = firstChild.getNodeValue();
+          if (text.startsWith("const ")) text = text.substring(5);
+          int mod = text.endsWith("*") ? 1 : 0;
+          b.append(text).delete(b.length() - 1 - mod, b.length() - mod);
+        }
+        NodeList pTypeList = proto.getElementsByTagName("ptype");
+        if (pTypeList.getLength() != 0) {
+          Node ptype = pTypeList.item(0);
+          b.append(transformType(ptype.getFirstChild().getNodeValue()));
+          if (ptype.getNextSibling() instanceof Text && !ptype.getNextSibling().getNodeValue().isBlank())
+            b.append(ptype.getNextSibling().getNodeValue().replace(" ", ""));
+        }
       }
       b.append("(");
       forEachElement(commandNode.getElementsByTagName("param"), paramNode -> {
@@ -308,7 +313,7 @@ public class HeaderGenerator {
     reqFuncs.forEach(reqFunc -> lines.add("            " + reqFunc + " = (.)func(\"" + reqFunc + "\");"));
     if(generateExtensionBooleans && foundExtensions.size() != 0) {
       lines.add("\n            for(uint i = 0; i < (.) *glGetIntegerv(.GL_NUM_EXTENSIONS, .. &(scope int[1])[0]); i++) {");
-      lines.add("                StringView currentExt = StringView((char8*) glGetStringi(.GL_EXTENSIONS, i));\n");
+      lines.add("                StringView currentExt = StringView(glGetStringi(.GL_EXTENSIONS, i));\n");
       foundExtensions.keySet().forEach(ext ->
           lines.add("                " + ext + " = currentExt.Equals(\"" + ext + "\");")
       );
