@@ -7,6 +7,7 @@ import org.xml.sax.InputSource;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.StringReader;
 import java.net.URL;
 import java.nio.file.Files;
@@ -95,20 +96,20 @@ public class HeaderGenerator {
     System.exit(0);
   }
 
-  private static Map<String, String> parseManualEnumGroupings() throws IOException {
+  /**
+   * Parses simple space seperated mappings from a given resource file
+   *
+   * @param resource the path of the resource file to parse
+   * @return the parsed Mappings
+   * @throws IOException if the resource file could not be read
+   */
+  private static Map<String, String> parseConfig(String resource) throws IOException {
     Map<String,String> result = new HashMap<>();
-    for (String s : new String(Objects.requireNonNull(HeaderGenerator.class.getResourceAsStream("/manual_groupings")).readAllBytes()).replace("\r", "").split("\\n")) {
-      String[] entry =s.split(" ");
-      if(s.length() > 1) result.put(entry[0], entry[1]);
-    }
-    return result;
-  }
-
-  private static Map<String, String> parseReturnOverrides() throws IOException {
-    Map<String,String> result = new HashMap<>();
-    for (String s : new String(Objects.requireNonNull(HeaderGenerator.class.getResourceAsStream("/return_overrides")).readAllBytes()).replace("\r", "").split("\\n")) {
+    InputStream is = HeaderGenerator.class.getResourceAsStream(resource);
+    if(is == null) throw new IOException("Resource '" + resource + "' does not exist");
+    for (String s : new String(is.readAllBytes()).replace("\r", "").split("\\n")) {
       if(s.startsWith("#")) continue;
-      String[] entry =s.split(" ");
+      String[] entry = s.split(" ");
       if(s.length() > 1) result.put(entry[0], entry[1]);
     }
     return result;
@@ -177,6 +178,7 @@ public class HeaderGenerator {
         })
     );
     CLIUtil.parse(args);
+    // Validate profile
     String version = versionMajor + "." + versionMinor;
     if (coreProfile && (versionMajor < 3 || (versionMajor == 3 && versionMinor < 2))) {
       System.err.println("OpenGL version " + version + " does not support core profile");
@@ -185,28 +187,36 @@ public class HeaderGenerator {
     System.out.println("Generating bindings for version " + version + " with " + (coreProfile ? "core" : "compatibility") + " profile");
     System.out.println("Requested Extensions: " + EXTENSIONS + "\n");
 
-    Map<String, String> manualGroupings = parseManualEnumGroupings();
-    Map<String, String> returnOverrides = parseReturnOverrides();
+    // Lines written to the output file
     List<String> lines = new ArrayList<>();
-    Set<String> reqEnums = new HashSet<>();
+    // The set of Enums required by the defined feature set. Ignored when extendedEnums are used
+    Set<String> requiredEnums = new HashSet<>();
+    // This is a separated Set because of the extendedEnums option honouring the core profile setting
     Set<String> removedEnums = new HashSet<>();
-    Set<String> reqFuncs = new HashSet<>();
+    // The Set of functions required by the defined feature set
+    Set<String> requiredFunctions = new HashSet<>();
+    // Contains the root nodes of all of the requested extensions addressed by their names
+    Map<String, Element> foundExtensions = new HashMap<>();
+    // Contains enum groupings manually added by looking at the documentation. Contains only groupings for the core profile
+    Map<String, String> manualGroupings = parseConfig("/manual_groupings");
+    // Contains function return overrides for specifying the enum values a function returns and fixing https://github.com/KhronosGroup/OpenGL-Registry/issues/363
+    Map<String, String> returnOverrides = parseConfig("/return_overrides");
 
-    //TODO: Switch back to upstream once PR is merged
+    // TODO: Switch back to upstream once PR is merged
     Element e = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(
         new URL("https://raw.githubusercontent.com/NogginBops/OpenGL-Registry/fix-enum-group-placement/xml/gl.xml").openStream()
     ).getDocumentElement();
 
-    Map<String, Element> foundExtensions = new HashMap<>();
-
+    // Lookup requested extensions, warn about the ones which were not found
     toList(e.getElementsByTagName("extension")).stream().map(Element.class::cast).filter(extElement ->
       EXTENSIONS.contains(extElement.getAttribute("name"))).forEach(ext -> foundExtensions.put(ext.getAttribute("name"), ext));
 
     EXTENSIONS.stream().filter(Predicate.not(foundExtensions.keySet()::contains)).forEach(s ->
         System.out.println("Warning: Could not find extension '" + s + "'. Rerun with -l or --listExtensions to see a list of all available extensions"));
 
+    // A set of all extensions that are not to be included in the final feature set
     Set<String> invalidExtensions = new HashSet<>();
-
+    // Filter out all extensions which are not OpenGL extensions (e.g GLES extensions)
     foundExtensions.values().stream()
         .filter(el -> Arrays.stream(el.getAttribute("supported").split("\\|")).noneMatch("gl"::equals))
         .forEach(el -> {
@@ -214,7 +224,7 @@ public class HeaderGenerator {
           System.out.println("Warning: Extension " + name + " is not a GL extension, it will not be included");
           invalidExtensions.add(name);
         });
-
+    // Filter out all extensions not allowed in core profile if core profile is requested
     if(coreProfile) foundExtensions.values().stream()
         .filter(el -> Arrays.stream(el.getAttribute("supported").split("\\|")).noneMatch("glcore"::equals))
         .forEach(el -> {
@@ -223,116 +233,126 @@ public class HeaderGenerator {
           invalidExtensions.add(name);
         });
     invalidExtensions.forEach(foundExtensions::remove);
-
+    // For all valid extensions add their enum values and commands to the feature set
     foundExtensions.values().stream().filter(ext -> ext.getElementsByTagName("require").getLength() > 0)
         .map(entry -> entry.getElementsByTagName("require").item(0)).forEach(node ->
           forEachElement(node.getChildNodes(), requirement -> {
-            if(requirement.getNodeName().equals("enum")) reqEnums.add(requirement.getAttribute("name"));
-            else reqFuncs.add(requirement.getAttribute("name"));
+            if(requirement.getNodeName().equals("enum")) requiredEnums.add(requirement.getAttribute("name"));
+            else requiredFunctions.add(requirement.getAttribute("name"));
           }));
-
+    // Build required standard OpenGL feature set
     forEachElement(e.getElementsByTagName("feature"), featureNode -> {
       if (!featureNode.getAttribute("api").equals("gl")) return;
       if (featureNode.getAttribute("number").compareTo(version) > 0) return;
 
       forEachElement(featureNode.getChildNodes(), child -> {
         if (child.getNodeName().equals("require")) forEachElement(child.getChildNodes(), reqNode -> {
-          if (reqNode.getNodeName().equals("enum"))
-            reqEnums.add(reqNode.getAttribute("name"));
+          if (!optionalEnums && reqNode.getNodeName().equals("enum"))
+            requiredEnums.add(reqNode.getAttribute("name"));
           if (reqNode.getNodeName().equals("command"))
-            reqFuncs.add(reqNode.getAttribute("name"));
+            requiredFunctions.add(reqNode.getAttribute("name"));
         });
 
         if (coreProfile && child.getNodeName().equals("remove")) forEachElement(child.getChildNodes(), remNode -> {
           if (remNode.getNodeName().equals("enum"))
             removedEnums.add(remNode.getAttribute("name"));
           if (remNode.getNodeName().equals("command"))
-            reqFuncs.remove(remNode.getAttribute("name"));
+            requiredFunctions.remove(remNode.getAttribute("name"));
         });
       });
     });
 
+    // Start code generation
     lines.add("using System;\n\nnamespace opengl {\n    static class OpenGL {\n");
     if(generateExtensionBooleans) foundExtensions.keySet().forEach(key -> lines.add("        public static bool " + key + " {private set;}"));
     if(foundExtensions.size() > 0) lines.add("");
-
-    forEachElement(e.getElementsByTagName("enums"), node -> forEachElement(node.getChildNodes(), node1 -> {
-      if (!node1.getNodeName().equals("enum")) return;
-      String name = node1.getAttribute("name");
-      if (removedEnums.contains(name) || !optionalEnums && !reqEnums.contains(name)) return;
-      String groups = node1.getAttribute("group");
+    // Build enum groupings; for ungrouped enums add them as uint constants
+    forEachElement(e.getElementsByTagName("enums"), enumGoupNode -> forEachElement(enumGoupNode.getChildNodes(), enumNode -> {
+      if (!enumNode.getNodeName().equals("enum")) return;
+      String name = enumNode.getAttribute("name");
+      if (removedEnums.contains(name) || !optionalEnums && !requiredEnums.contains(name)) return;
+      String groups = enumNode.getAttribute("group");
       if(manualGroupings.containsKey(name)) {
         groups = groups + (!groups.isEmpty() ? "," : "") + manualGroupings.get(name);
       }
       if (!groups.isEmpty()) {
         for (String group : groups.split(","))
-          Enum.forName(group).addValue(name, node1.getAttribute("value"));
+          Enum.forName(group).addValue(name, enumNode.getAttribute("value"));
       } else {
-        String val = node1.getAttribute(("value"));
+        String val = enumNode.getAttribute(("value"));
         lines.add("        public const uint" + (val.length() < 11 ? 32 : 64) + " " + name + " = " + val + ";");
       }
     }));
     lines.add("");
     Enum.all().stream().map(Enum::toString).forEach(lines::add);
-
+    // Start command code generation
     forEachElement(e.getElementsByTagName("commands").item(0).getChildNodes(), commandNode -> {
       if (!commandNode.getNodeName().equals("command")) return;
+      // The proto node contains the functions name and return type
       Element proto = (Element) commandNode.getElementsByTagName("proto").item(0);
-      String funName = proto.getElementsByTagName("name").item(0).getFirstChild().getNodeValue();
-      if (!reqFuncs.contains(funName)) return;
-      Node firstChild = proto.getFirstChild();
-      StringBuilder b = new StringBuilder("        public static function ");
-      if(returnOverrides.containsKey(funName)) {
-        b.append(returnOverrides.get(funName));
-      } else {
+      String name = proto.getElementsByTagName("name").item(0).getFirstChild().getNodeValue();
+      if (!requiredFunctions.contains(name)) return;
+      // The generated beef code for this function
+      StringBuilder beefCode = new StringBuilder("        public static function ");
+      if(returnOverrides.containsKey(name)) beefCode.append(returnOverrides.get(name));
+      else {
+        // If the function type is not explicitly overridden, the first child node can declare simple return types e.g void
+        // It could also do other weird c const stuff, which is omitted in Beef
+        Node firstChild = proto.getFirstChild();
         if (firstChild instanceof Text) {
           String text = firstChild.getNodeValue();
           if (text.startsWith("const ")) text = text.substring(5);
-          int mod = text.endsWith("*") ? 1 : 0;
-          b.append(text).delete(b.length() - 1 - mod, b.length() - mod);
+          int isPtr = text.endsWith("*") ? 1 : 0;
+          beefCode.append(text).delete(beefCode.length() - 1 - isPtr, beefCode.length() - isPtr);
         }
-        NodeList pTypeList = proto.getElementsByTagName("ptype");
-        if (pTypeList.getLength() != 0) {
-          Node ptype = pTypeList.item(0);
-          b.append(transformType(ptype.getFirstChild().getNodeValue()));
-          if (ptype.getNextSibling() instanceof Text && !ptype.getNextSibling().getNodeValue().isBlank())
-            b.append(ptype.getNextSibling().getNodeValue().replace(" ", ""));
+        // If a ptype (return type) node is present, its content is transformed to a corresponding Beef type
+        // keeping pointer information from the sibling text node if present
+        NodeList returnTypeNodes = proto.getElementsByTagName("ptype");
+        if (returnTypeNodes.getLength() != 0) {
+          Node returnTypeNode = returnTypeNodes.item(0);
+          beefCode.append(transformType(returnTypeNode.getFirstChild().getNodeValue()));
+          if (returnTypeNode.getNextSibling() instanceof Text && !returnTypeNode.getNextSibling().getNodeValue().isBlank())
+            beefCode.append(returnTypeNode.getNextSibling().getNodeValue().replace(" ", ""));
         }
       }
-      b.append("(");
+      beefCode.append("(");
       forEachElement(commandNode.getElementsByTagName("param"), paramNode -> {
-        Node paramfChild = paramNode.getFirstChild();
-        if (paramfChild instanceof Text) {
-          String prepText = paramfChild.getNodeValue();
-          b.append(prepText.replace("const", "").replace(" ", ""));
-
-        }
+        // The first child node (if being a text node) could either contain a simple parameter type or a const modifier
+        // which is ignored in Beef
+        Node firstChild = paramNode.getFirstChild();
+        if (firstChild instanceof Text)
+          beefCode.append(firstChild.getNodeValue().replace("const", "").replace(" ", ""));
+        // The parameters group is important for translating GlEnum to a typed Beef enum
         String groupType = paramNode.getAttribute("group");
-        NodeList ptypeL = paramNode.getElementsByTagName("ptype");
-        if (ptypeL.getLength() != 0) {
-          Node ptype = ptypeL.item(0);
-          String type = ptype.getFirstChild().getNodeValue();
-          if (!groupType.isEmpty() && Enum.nameExists(groupType)) b.append(groupType);
-          else b.append(transformType(type));
-          if (ptype.getNextSibling() instanceof Text && !ptype.getNextSibling().getNodeValue().isBlank())
-            b.append(ptype.getNextSibling().getNodeValue().replace("const", "").replace(" ", ""));
+        // If a ptype (parameter type) node is declared, first try to find an enum for its group. If there isn't one
+        // The ptype value is transformed to its corresponding beef type. In both cases pointer information is preserved
+        // from the next Text element if such exists
+        NodeList parameterTypeNodes = paramNode.getElementsByTagName("ptype");
+        if (parameterTypeNodes.getLength() != 0) {
+          Node parameterTypeNode = parameterTypeNodes.item(0);
+          if (!groupType.isEmpty() && Enum.nameExists(groupType)) beefCode.append(groupType);
+          else beefCode.append(transformType(parameterTypeNode.getFirstChild().getNodeValue()));
+          if (parameterTypeNode.getNextSibling() instanceof Text && !parameterTypeNode.getNextSibling().getNodeValue().isBlank())
+            beefCode.append(parameterTypeNode.getNextSibling().getNodeValue().replace("const", "").replace(" ", ""));
         }
+        // Finally transform the parameters name if it is a reserved word in Beef
         String paramName = paramNode.getElementsByTagName("name").item(0).getFirstChild().getNodeValue();
         if (paramName.equals("params")) paramName = "parameters";
         if (paramName.equals("ref")) paramName = "reference";
-        b.append(" ").append(paramName);
-        b.append(", ");
+        beefCode.append(" ").append(paramName);
+        beefCode.append(", ");
       });
-      if (b.charAt(b.length() - 1) != '(') b.delete(b.length() - 2, b.length());
-      b.append(") ").append(funName).append(";");
-      lines.add(b.toString());
+      if (beefCode.charAt(beefCode.length() - 1) != '(') beefCode.delete(beefCode.length() - 2, beefCode.length());
+      beefCode.append(") ").append(name).append(";");
+      lines.add(beefCode.toString());
     });
 
-    lines.add("\n        public function void* GetProcAddressFunc(StringView procname);");
-    lines.add("\n        public static void Init(GetProcAddressFunc func) {");
-    reqFuncs.forEach(reqFunc -> lines.add("            " + reqFunc + " = (.)func(\"" + reqFunc + "\");"));
+    // Generate an Init function resolving all function pointers and checking all extension for support at runtime
+    // if requested
+    lines.add("\n        public static void Init(function void*(StringView procname) func) {");
+    requiredFunctions.forEach(reqFunc -> lines.add("            " + reqFunc + " = (.)func(\"" + reqFunc + "\");"));
     if(generateExtensionBooleans && foundExtensions.size() != 0) {
-      lines.add("\n            for(uint i = 0; i < (.) *glGetIntegerv(.GL_NUM_EXTENSIONS, .. &(scope int[1])[0]); i++) {");
+      lines.add("\n            for(uint32 i = 0; (.) i < *glGetIntegerv(.GL_NUM_EXTENSIONS, .. &(scope int32[1])[0]); i++) {");
       lines.add("                StringView currentExt = StringView(glGetStringi(.GL_EXTENSIONS, i));\n");
       foundExtensions.keySet().forEach(ext ->
           lines.add("                " + ext + " = currentExt.Equals(\"" + ext + "\");")
@@ -340,7 +360,7 @@ public class HeaderGenerator {
       lines.add("            }");
     }
     lines.add("        }\n    }\n}");
-
+    // Finally write our generated header to the output path
     Files.createDirectories(outputPath.getParent());
     Files.write(outputPath, lines);
     System.out.println("\nDone, Enjoy!");
