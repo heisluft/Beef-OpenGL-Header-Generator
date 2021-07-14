@@ -16,8 +16,8 @@ public class Enum {
   private final String name;
   /** Whether the enum values are unsigned integers */
   private boolean unsigned = true;
-  /** The number of bits used to represent the enum values. -1 means uint / int covers all values */
-  private int intBits = -1;
+  /** The number of bits used to represent the enum values. */
+  private int intBits = 32;
   /** All enum values mapped to their name */
   private final Map<String, String> values = new HashMap<>();
 
@@ -48,7 +48,6 @@ public class Enum {
   void addValue(String name, String value) {
     if (value.startsWith("-")) unsigned = false;
     if (value.length() >= 11) intBits = Math.max(64, intBits);
-    else if (value.length() >= 7) intBits = Math.max(32, intBits);
     values.put(name, value);
   }
 
@@ -78,7 +77,7 @@ public class Enum {
    */
   @Override
   public String toString() {
-    String typeString = (unsigned ? "u" : "") + "int" + (intBits != -1 ? intBits : "");
+    String typeString = (unsigned ? "u" : "") + "int" + intBits;
     StringBuilder builder = new StringBuilder("        [AllowDuplicates]\n        public enum " + name + " : " + typeString + " {\n");
     values.entrySet().stream().map(e -> "            case " + e.getKey() + " = " + e.getValue() + ";\n").forEach(builder::append);
     if(name.equals("Boolean"))

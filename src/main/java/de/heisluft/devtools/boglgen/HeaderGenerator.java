@@ -121,7 +121,7 @@ public class HeaderGenerator {
         new Option("version", 'v', verString -> {
           if(verString.equals("latest")) {
             versionMajor = 4;
-            versionMinor = 3;
+            versionMinor = 5;
             return;
           }
           if (verString.length() != 3 || verString.charAt(1) != '.') {
@@ -138,7 +138,7 @@ public class HeaderGenerator {
           System.out.println("Option               Shorthand       Description\n");
           System.out.println("--version=VERSION    -v VERSION    The OpenGl version to generate headers for. Format is");
           System.out.println("                                   VersionMajor[dot]VersionMinor e.g. 3.2 or 'latest'");
-          System.out.println("                                   for (currently latest) 4.3\n");
+          System.out.println("                                   for (currently latest) 4.5\n");
           System.out.println("--core               -c            Omits functions and enum values removed by the core");
           System.out.println("                                   profile. The OpenGL version must be 3.2 or higher.\n");
           System.out.println("--autoconv           -a            Enables automatic conversions from integer types to enums.");
@@ -236,8 +236,6 @@ public class HeaderGenerator {
     lines.add("using System;\n\nnamespace opengl {\n    static class OpenGL {\n");
     if(generateExtensionBooleans) foundExtensions.keySet().forEach(key -> lines.add("        public static bool " + key + " {private set;}"));
     if(foundExtensions.size() > 0) lines.add("");
-    if (versionMajor == 4 && versionMinor == 3)
-      lines.add("        public static function void* DEBUGPROC(DebugSource source, DebugType type, uint id, DebugSeverity severity, int length, char8* message, void* userParam);");
 
     forEachElement(e.getElementsByTagName("enums"), node -> forEachElement(node.getChildNodes(), node1 -> {
       if (!node1.getNodeName().equals("enum")) return;
@@ -248,7 +246,7 @@ public class HeaderGenerator {
           Enum.forName(group).addValue(name, node1.getAttribute("value"));
       } else {
         String val = node1.getAttribute(("value"));
-        lines.add("        public const uint" + (val.length() < 7 ? "" : val.length() < 11 ? 32 : 64) + " " + name + " = " + val + ";");
+        lines.add("        public const uint" + (val.length() < 11 ? 32 : 64) + " " + name + " = " + val + ";");
       }
     }));
     lines.add("");
@@ -333,45 +331,43 @@ public class HeaderGenerator {
    * @param type the OpenGL type to transform
    * @return th corresponding Beef type
    */
-  static String transformType(String type) {
+  private static String transformType(String type) {
     type = type.substring(2);
     switch (type) {
+      case "boolean": return "bool";
+      case "char":
+      case "charARB": return "char8";
+      case "clampf": return "float";
+      case "clampd": return "double";
+      case "byte": return "int8";
+      case "ubyte": return "uint8";
+      case "short": return "int16";
+      case "ushort":
+      case "half":
+      case "halfARB": return "uint16";
+      case "int":
       case "sizei":
       case "sizeiptr":
       case "sizeiptrARB":
-        return "int";
+      case "clampx":
+      case "fixed":
+      case "intptrARB":
+      case "intptr": return "int32";
       case "enum":
       case "bitfield":
-        return "uint";
-      case "boolean":
-        return "bool";
-      case "byte":
-        return "int8";
-      case "ubyte":
-        return "uint8";
-      case "char":
-      case "charARB":
-        return "char8";
-      case "short":
-        return "int16";
-      case "half":
-      case "ushort":
-        return "uint16";
-      case "sized":
-        return "uint32";
-      case "int64EXT":
-        return "int64";
-      case "uint64EXT":
-        return "uint64";
-      case "clampd":
-        return "double";
-      case "intptrARB":
-      case "intptr":
-        return "int*";
+      case "uint": return "uint32";
+      case "int64":
+      case "int64EXT": return "int64";
+      case "uint64":
+      case "uint64EXT": return "uint64";
+      case "eglClientBufferEXT":
       case "sync":
-        return "void*";
-      default:
-        return type;
+      case "eglImageOES":
+      case "handleARB":    return "void*";
+      case "DEBUGPROC":
+      case "DEBUGPROCARB":
+      case "DEBUGPROCKHR": return "function void(DebugSource source, DebugType type, uint id, DebugSeverity severity, int length, char8* message, void* userParam)";
+      default:             return type;
     }
   }
 

@@ -48,3 +48,5 @@ OpenGL.Init(=> Glfw.GetProcAddress);
 - If you've included Extensions in your header generation you can use `if(OpenGl.EXTENSION) {...}`
   to check whether the extension is supported for the device running your program. If you don't need
   this feature you can turn it off by specifying `-n` or `--noExtCheck` when running the generator
+- The bindings likely do **NOT** work with x32 as GLints, GLuints and the like are directly translated to
+  (u)int32 for the reason that Beef does not really work on x32 atm. This *may* change in the future
