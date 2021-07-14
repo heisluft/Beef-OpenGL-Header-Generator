@@ -264,8 +264,10 @@ public class HeaderGenerator {
 
     // Start code generation
     lines.add("using System;\n\nnamespace opengl {\n    static class OpenGL {\n");
-    if(generateExtensionBooleans) foundExtensions.keySet().forEach(key -> lines.add("        public static bool " + key + " {private set;}"));
-    if(foundExtensions.size() > 0) lines.add("");
+    if(generateExtensionBooleans) {
+      foundExtensions.keySet().forEach(key -> lines.add("        public static bool " + key + " {private set;}"));
+      if(foundExtensions.size() > 0) lines.add("");
+    }
     // Build enum groupings; for ungrouped enums add them as uint constants
     forEachElement(e.getElementsByTagName("enums"), enumGoupNode -> forEachElement(enumGoupNode.getChildNodes(), enumNode -> {
       if (!enumNode.getNodeName().equals("enum")) return;
@@ -352,7 +354,7 @@ public class HeaderGenerator {
     lines.add("\n        public static void Init(function void*(StringView procname) func) {");
     requiredFunctions.forEach(reqFunc -> lines.add("            " + reqFunc + " = (.)func(\"" + reqFunc + "\");"));
     if(generateExtensionBooleans && foundExtensions.size() != 0) {
-      lines.add("\n            for(uint32 i = 0; (.) i < *glGetIntegerv(.GL_NUM_EXTENSIONS, .. &(scope int32[1])[0]); i++) {");
+      lines.add("\n            for(uint32 i = 0; i < (.) *glGetIntegerv(.GL_NUM_EXTENSIONS, .. &(scope int32[1])[0]); i++) {");
       lines.add("                StringView currentExt = StringView(glGetStringi(.GL_EXTENSIONS, i));\n");
       foundExtensions.keySet().forEach(ext ->
           lines.add("                " + ext + " = currentExt.Equals(\"" + ext + "\");")
