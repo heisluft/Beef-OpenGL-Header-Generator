@@ -2,13 +2,11 @@ package de.heisluft.devtools.boglgen;
 
 import de.heisluft.devtools.cli.CLIUtil;
 import de.heisluft.devtools.cli.Option;
-import org.w3c.dom.Element;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
-import org.w3c.dom.Text;
+import org.w3c.dom.*;
 import org.xml.sax.InputSource;
 
 import javax.xml.parsers.DocumentBuilderFactory;
+import java.io.IOException;
 import java.io.StringReader;
 import java.net.URL;
 import java.nio.file.Files;
@@ -97,6 +95,25 @@ public class HeaderGenerator {
     System.exit(0);
   }
 
+  private static Map<String, String> parseManualEnumGroupings() throws IOException {
+    Map<String,String> result = new HashMap<>();
+    for (String s : new String(Objects.requireNonNull(HeaderGenerator.class.getResourceAsStream("/manual_groupings")).readAllBytes()).replace("\r", "").split("\\n")) {
+      String[] entry =s.split(" ");
+      if(s.length() > 1) result.put(entry[0], entry[1]);
+    }
+    return result;
+  }
+
+  private static Map<String, String> parseReturnOverrides() throws IOException {
+    Map<String,String> result = new HashMap<>();
+    for (String s : new String(Objects.requireNonNull(HeaderGenerator.class.getResourceAsStream("/return_overrides")).readAllBytes()).replace("\r", "").split("\\n")) {
+      if(s.startsWith("#")) continue;
+      String[] entry =s.split(" ");
+      if(s.length() > 1) result.put(entry[0], entry[1]);
+    }
+    return result;
+  }
+
   public static void main(String[] args) throws Exception {
     System.out.println("Beef OpenGL Header Generator version 1.4.0 by heisluft\n");
     CLIUtil.addOptions(
@@ -168,6 +185,8 @@ public class HeaderGenerator {
     System.out.println("Generating bindings for version " + version + " with " + (coreProfile ? "core" : "compatibility") + " profile");
     System.out.println("Requested Extensions: " + EXTENSIONS + "\n");
 
+    Map<String, String> manualGroupings = parseManualEnumGroupings();
+    Map<String, String> returnOverrides = parseReturnOverrides();
     List<String> lines = new ArrayList<>();
     Set<String> reqEnums = new HashSet<>();
     Set<String> removedEnums = new HashSet<>();
@@ -241,8 +260,12 @@ public class HeaderGenerator {
       if (!node1.getNodeName().equals("enum")) return;
       String name = node1.getAttribute("name");
       if (removedEnums.contains(name) || !optionalEnums && !reqEnums.contains(name)) return;
-      if (!node1.getAttribute("group").isEmpty()) {
-        for (String group : node1.getAttribute("group").split(","))
+      String groups = node1.getAttribute("group");
+      if(manualGroupings.containsKey(name)) {
+        groups = groups + (!groups.isEmpty() ? "," : "") + manualGroupings.get(name);
+      }
+      if (!groups.isEmpty()) {
+        for (String group : groups.split(","))
           Enum.forName(group).addValue(name, node1.getAttribute("value"));
       } else {
         String val = node1.getAttribute(("value"));
@@ -259,9 +282,8 @@ public class HeaderGenerator {
       if (!reqFuncs.contains(funName)) return;
       Node firstChild = proto.getFirstChild();
       StringBuilder b = new StringBuilder("        public static function ");
-      //See https://github.com/KhronosGroup/OpenGL-Registry/issues/363
-      if("glGetString".equals(funName) || "glGetStringi".equals(funName)) {
-        b.append("char8*");
+      if(returnOverrides.containsKey(funName)) {
+        b.append(returnOverrides.get(funName));
       } else {
         if (firstChild instanceof Text) {
           String text = firstChild.getNodeValue();

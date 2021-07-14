@@ -1,0 +1,8 @@
+glGetGraphicsResetStatus GraphicsResetStatus
+#See https://github.com/KhronosGroup/OpenGL-Registry/issues/363
+glGetString char8*
+glGetStringi char8*
+glCheckFramebufferStatus FramebufferStatus
+glCheckNamedFramebufferStatus FramebufferStatus
+glClientWaitSync SyncStatus
+glGetError ErrorCode
