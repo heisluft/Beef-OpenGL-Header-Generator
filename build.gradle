@@ -5,6 +5,8 @@ plugins {
 group 'de.heisluft.devtools'
 version '1.5.2'
 
+java.toolchain.languageVersion.set(JavaLanguageVersion.of(11))
+
 jar {
     from('LICENSE', 'README.md')
     manifest.attributes.put("Main-Class", "de.heisluft.devtools.boglgen.HeaderGenerator")
