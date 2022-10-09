@@ -1,5 +1,5 @@
 # Beef OpenGL Header Generator
-A Generator for OpenGL headers for the Beef Programming language, Version 1.5.2
+A Generator for OpenGL headers for the Beef Programming language, Version 1.6.0
 ## Features:
 - Automatic Grouping of enum values into actual enums with the options to auto-convert from uints.
 - Core and compatibility profiles support
@@ -44,9 +44,9 @@ OpenGL.Init(=> Glfw.GetProcAddress);
 ### Things to note
 - If an enum value is not contained in an enum and does not show up in autocompletion 
   you can cast all ungrouped enum values with your typical `(.)` stunt. If you like to
-  auto convert those ungrouped values, specify `-a` or `--autoconv` when running the generator
+  auto convert those ungrouped values, specify `-a` or `--auto-conversion` when running the generator
 - If you've included Extensions in your header generation you can use `if(OpenGl.EXTENSION) {...}`
   to check whether the extension is supported for the device running your program. If you don't need
-  this feature you can turn it off by specifying `-n` or `--noExtCheck` when running the generator
+  this feature you can turn it off by specifying `-n` or `--no-extension-check` when running the generator
 - The bindings likely do **NOT** work with x32 as GLints, GLuints and the like are directly translated to
   (u)int32 for the reason that Beef does not really work on x32 atm. This *may* change in the future

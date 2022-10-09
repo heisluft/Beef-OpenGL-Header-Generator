@@ -116,13 +116,13 @@ public class HeaderGenerator {
   }
 
   public static void main(String[] args) throws Exception {
-    System.out.println("Beef OpenGL Header Generator version 1.5.2 by heisluft\n");
+    System.out.println("Beef OpenGL Header Generator version 1.6.0 by heisluft\n");
     CLIUtil.addOptions(
         new Option("core", 'c', () -> coreProfile = true),
-        new Option("noExtCheck", 'n', () -> generateExtensionBooleans = false),
-        new Option("autoConv", 'a', () -> autoConversion = true),
-        new Option("optionalEnums", 'e', () -> optionalEnums = true),
-        new Option("listExt", 'l', HeaderGenerator::listExtensions),
+        new Option("no-extension-check", 'n', () -> generateExtensionBooleans = false),
+        new Option("auto-conversion", 'a', () -> autoConversion = true),
+        new Option("optional-enums", 'e', () -> optionalEnums = true),
+        new Option("list-extensions", 'l', HeaderGenerator::listExtensions),
         new Option("include", 'i', extStr -> {
           for (String s : extStr.split(",")) {
             if(s.isEmpty()) {
@@ -159,19 +159,19 @@ public class HeaderGenerator {
           System.out.println("                                   for (currently latest) 4.5\n");
           System.out.println("--core               -c            Omits functions and enum values removed by the core");
           System.out.println("                                   profile. The OpenGL version must be 3.2 or higher.\n");
-          System.out.println("--autoconv           -a            Enables automatic conversions from integer types to enums.");
+          System.out.println("--auto-conversion    -a            Enables automatic conversions from integer types to enums.");
           System.out.println("                                   Omits the need to type (.) for ungrouped values, but it");
           System.out.println("                                   might clutter your autocompletion.\n");
-          System.out.println("--optionalEnums      -e            Enables the generation of optional constants not required");
+          System.out.println("--optional-enums     -e            Enables the generation of optional constants not required");
           System.out.println("                                   by a certain feature set. Useful if you want to use");
           System.out.println("                                   constants that are supported but not standardized, but");
           System.out.println("                                   not all of them might be. Turn this on as needed.\n");
           System.out.println("--output=OUT_FILE    -o OUT_FILE   Specifies the file path to which to output.\n");
-          System.out.println("--listExt            -l            Lists all available OpenGL extensions.\n");
+          System.out.println("--list-extensions    -l            Lists all available OpenGL extensions.\n");
           System.out.println("--include=EXTENSIONS -i EXTENSIONS Includes functions and enum values from the specified");
           System.out.println("                                   comma separated list of extensions.");
           System.out.println("                                   Usage: --include=GL_EXT_1,GL_EXT_2,...\n");
-          System.out.println("--noExtCheck         -n            Skips generation of bool values for checking if an");
+          System.out.println("--no-extension-check -n            Skips generation of bool values for checking if an");
           System.out.println("                                   extension is available on a certain platform\n");
           System.out.println("--help               -h            Displays this message");
           System.exit(0);
