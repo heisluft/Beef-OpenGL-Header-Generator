@@ -44,7 +44,7 @@ public class HeaderGenerator {
   /** The Minor OpenGL version */
   private static int versionMinor = 2;
   /** The Path to which to output */
-  static Path outputPath = Path.of("OpenGL.bf").toAbsolutePath();
+  private static Path outputPath = Path.of("OpenGL.bf").toAbsolutePath();
   /** The extensions to generate headers for */
   private static final List<String> EXTENSIONS = new ArrayList<>();
 
@@ -120,7 +120,7 @@ public class HeaderGenerator {
     CLIUtil.addOptions(
         new Option("core", 'c', () -> coreProfile = true),
         new Option("noExtCheck", 'n', () -> generateExtensionBooleans = false),
-        new Option("autoconv", 'a', () -> autoConversion = true),
+        new Option("autoConv", 'a', () -> autoConversion = true),
         new Option("optionalEnums", 'e', () -> optionalEnums = true),
         new Option("listExt", 'l', HeaderGenerator::listExtensions),
         new Option("include", 'i', extStr -> {
@@ -202,9 +202,8 @@ public class HeaderGenerator {
     // Contains function return overrides for specifying the enum values a function returns and fixing https://github.com/KhronosGroup/OpenGL-Registry/issues/363
     Map<String, String> returnOverrides = parseConfig("/return_overrides");
 
-    // TODO: Switch back to upstream once PR is merged
     Element e = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(
-        new URL("https://raw.githubusercontent.com/NogginBops/OpenGL-Registry/fix-enum-group-placement/xml/gl.xml").openStream()
+        new URL("https://raw.githubusercontent.com/KhronosGroup/OpenGL-Registry/master/xml/gl.xml").openStream()
     ).getDocumentElement();
 
     // Lookup requested extensions, warn about the ones which were not found
@@ -421,7 +420,7 @@ public class HeaderGenerator {
    * @param nodeList the nodelist to convert
    * @return the converted list
    */
-  static List<Node> toList(NodeList nodeList) {
+  private static List<Node> toList(NodeList nodeList) {
     List<Node> list = new ArrayList<>(nodeList.getLength());
     for (int i = 0; i < nodeList.getLength(); i++) list.add(nodeList.item(i));
     return list;
@@ -433,7 +432,7 @@ public class HeaderGenerator {
    * @param list     the list to iterate over
    * @param consumer the lambda applied to all element objects
    */
-  static void forEachElement(NodeList list, Consumer<Element> consumer) {
+  private static void forEachElement(NodeList list, Consumer<Element> consumer) {
     toList(list).stream().filter(Element.class::isInstance).map(Element.class::cast).forEach(consumer);
   }
 }
