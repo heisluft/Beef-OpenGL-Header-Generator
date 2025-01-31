@@ -1,7 +1,7 @@
 package de.heisluft.devtools.boglgen;
 
-import de.heisluft.devtools.cli.CLIUtil;
-import de.heisluft.devtools.cli.Option;
+import de.heisluft.cli.simpleopt.OptionParser;
+import de.heisluft.cli.simpleopt.OptionDefinition;
 import org.w3c.dom.*;
 import org.xml.sax.InputSource;
 
@@ -117,13 +117,14 @@ public class HeaderGenerator {
 
   public static void main(String[] args) throws Exception {
     System.out.println("Beef OpenGL Header Generator version 1.6.0 by heisluft\n");
-    CLIUtil.addOptions(
-        new Option("core", 'c', () -> coreProfile = true),
-        new Option("no-extension-check", 'n', () -> generateExtensionBooleans = false),
-        new Option("auto-conversion", 'a', () -> autoConversion = true),
-        new Option("optional-enums", 'e', () -> optionalEnums = true),
-        new Option("list-extensions", 'l', HeaderGenerator::listExtensions),
-        new Option("include", 'i', extStr -> {
+    OptionParser optionParser = new OptionParser();
+    optionParser.addOptions(
+        OptionDefinition.nonArg("core", () -> coreProfile = true).description("Omits functions and enum values removed by the core profile. The OpenGL version must be 3.2 or higher."),
+        OptionDefinition.nonArg("no-extension-check", () -> generateExtensionBooleans = false).description("Skips generation of bool values for checking if an extension is available on a certain platform."),
+        OptionDefinition.nonArg("auto-conversion", () -> autoConversion = true).description("Enables automatic conversions from integer types to enums. Omits the need to type (.) for ungrouped values, but it might clutter your autocompletion."),
+        OptionDefinition.nonArg("optional-enums", 'e', () -> optionalEnums = true).description("Enables the generation of optional constants not required by a certain feature set. Useful if you want to use constants that are supported but not standardized, but not all of them might be. Turn this on as needed."),
+        OptionDefinition.nonArg("list-extensions", HeaderGenerator::listExtensions).description("Lists all available OpenGL extensions."),
+        OptionDefinition.withArg("include", extStr -> {
           for (String s : extStr.split(",")) {
             if(s.isEmpty()) {
               System.out.println("Warning: empty extension name, ignoring.");
@@ -135,8 +136,8 @@ public class HeaderGenerator {
             }
             EXTENSIONS.add(s);
           }
-        }),
-        new Option("version", 'v', verString -> {
+        }).valueHelpName("EXTENSIONS").description("Includes functions and enum values from the specified comma separated list of extensions. Usage: --include=GL_EXT_1,GL_EXT_2,..."),
+        OptionDefinition.withArg("version", verString -> {
           if(verString.equals("latest")) {
             versionMajor = 4;
             versionMinor = 5;
@@ -148,36 +149,14 @@ public class HeaderGenerator {
           }
           versionMajor = Character.getNumericValue(verString.charAt(0));
           versionMinor = Character.getNumericValue(verString.charAt(2));
-        }),
-        new Option("output", 'o', pathSpec -> outputPath = Path.of(pathSpec).toAbsolutePath()),
-        new Option("help", 'h', () -> {
-          System.out.println("A tool for the generation of OpenGL headers for the Beef Programming language\n");
-          System.out.println("Options:");
-          System.out.println("Option               Shorthand       Description\n");
-          System.out.println("--version=VERSION    -v VERSION    The OpenGl version to generate headers for. Format is");
-          System.out.println("                                   VersionMajor[dot]VersionMinor e.g. 3.2 or 'latest'");
-          System.out.println("                                   for (currently latest) 4.5\n");
-          System.out.println("--core               -c            Omits functions and enum values removed by the core");
-          System.out.println("                                   profile. The OpenGL version must be 3.2 or higher.\n");
-          System.out.println("--auto-conversion    -a            Enables automatic conversions from integer types to enums.");
-          System.out.println("                                   Omits the need to type (.) for ungrouped values, but it");
-          System.out.println("                                   might clutter your autocompletion.\n");
-          System.out.println("--optional-enums     -e            Enables the generation of optional constants not required");
-          System.out.println("                                   by a certain feature set. Useful if you want to use");
-          System.out.println("                                   constants that are supported but not standardized, but");
-          System.out.println("                                   not all of them might be. Turn this on as needed.\n");
-          System.out.println("--output=OUT_FILE    -o OUT_FILE   Specifies the file path to which to output.\n");
-          System.out.println("--list-extensions    -l            Lists all available OpenGL extensions.\n");
-          System.out.println("--include=EXTENSIONS -i EXTENSIONS Includes functions and enum values from the specified");
-          System.out.println("                                   comma separated list of extensions.");
-          System.out.println("                                   Usage: --include=GL_EXT_1,GL_EXT_2,...\n");
-          System.out.println("--no-extension-check -n            Skips generation of bool values for checking if an");
-          System.out.println("                                   extension is available on a certain platform\n");
-          System.out.println("--help               -h            Displays this message");
+        }).valueHelpName("VERSION").description("The OpenGl version to generate headers for. Format is VersionMajor[dot]VersionMinor e.g. 3.2 or 'latest' for (currently latest) 4.5"),
+        OptionDefinition.withArg("output", Path.class, pathSpec -> outputPath = pathSpec.toAbsolutePath()).valueHelpName("OUT_FILE").description("Specifies the file path to which to output."),
+        OptionDefinition.nonArg("help", 'h', () -> {
+          System.out.println(optionParser.printHelp("A tool for the generation of OpenGL headers for the Beef Programming language"));
           System.exit(0);
-        })
+        }).description("Displays this message")
     );
-    CLIUtil.parse(args);
+    optionParser.parse(args);
     // Validate profile
     String version = versionMajor + "." + versionMinor;
     if (coreProfile && (versionMajor < 3 || (versionMajor == 3 && versionMinor < 2))) {

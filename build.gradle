@@ -1,13 +1,24 @@
 plugins {
     id 'java'
+    id 'com.github.johnrengelman.shadow' version '7.1.2'
 }
 
 group 'de.heisluft.devtools'
-version '1.6.0'
+version '1.6.1'
 
 java.toolchain.languageVersion.set(JavaLanguageVersion.of(11))
 
-jar {
+shadowJar {
     from('LICENSE', 'README.md')
     manifest.attributes.put("Main-Class", "de.heisluft.devtools.boglgen.HeaderGenerator")
+}
+
+repositories {
+    maven {
+        url = 'https://heisluft.de/maven/'
+    }
+}
+
+dependencies {
+    implementation 'de.heisluft.cli:simple-options:0.0.1'
 }
